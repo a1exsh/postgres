@@ -284,7 +284,7 @@ static const PQEnvironmentOption EnvironmentOptions[] =
 
 /* The recognized connection URI must start with the following designator: */
 static const char uri_designator[] = "postgresql://";
-
+static const char short_uri_designator[] = "postgres://";
 
 static bool connectOptions1(PGconn *conn, const char *conninfo);
 static bool connectOptions2(PGconn *conn);
@@ -4250,8 +4250,11 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 			 * since URI might as well contain "=" if extra parameters are
 			 * given.
 			 */
-			if (pvalue && strncmp(pvalue, uri_designator,
-								  sizeof(uri_designator) - 1) == 0)
+			if (pvalue && (
+					(strncmp(pvalue, uri_designator,
+							 sizeof(uri_designator) - 1) == 0) ||
+					(strncmp(pvalue, short_uri_designator,
+							 sizeof(short_uri_designator) - 1) == 0)))
 			{
 				str_options = conninfo_uri_parse(pvalue, errorMessage);
 				if (str_options == NULL)
@@ -4528,13 +4531,18 @@ static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 						   char *buf,  PQExpBuffer errorMessage)
 {
-	/* Assume host address, unless seen otherwise */
 	const char *host;
 
-	/* Assume URI prefix is already verified by the caller */
-	char *start = buf + sizeof(uri_designator) - 1;
-	char *p = start;
+	char *start = buf;
+	char *p;
 	char lastc;
+
+	/* Assume URI prefix is already verified by the caller */
+	if (strncmp(start, uri_designator, sizeof(uri_designator) - 1) == 0)
+		start += sizeof(uri_designator) - 1;
+	else
+		start += sizeof(short_uri_designator) - 1;
+	p = start;
 
 	/* Look ahead for possible user credentials designator */
 	while (*p && *p != '@' && *p != '/')
