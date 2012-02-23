@@ -4530,13 +4530,11 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 {
 	/* Assume host address, unless seen otherwise */
 	const char *host;
-	const char *dbname;
-	bool has_port = false;
-	bool has_params = false;
 
 	/* Assume URI prefix is already verified by the caller */
 	char *start = buf + sizeof(uri_designator) - 1;
 	char *p = start;
+	char lastc;
 
 	/* Look ahead for possible user credentials designator */
 	while (*p && *p != '@' && *p != '/')
@@ -4549,22 +4547,20 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 	else
 	{
 		char *user = start;
-		bool has_password = false;
 
 		p = user;
 		while (*p != ':' && *p != '@')
 			++p;
-		if (*p == ':')
-			has_password = true;
 
-		/* Cut off at end of user name */
+		/* Save last char and cut off at end of user name */
+		lastc = *p;
 		*p = '\0';
 
 		if (!conninfo_store_uri_encoded_value(options, "user", user,
 											  errorMessage, false))
 			return false;
 
-		if (has_password)
+		if (lastc == ':')
 		{
 			const char *password = p + 1;
 
@@ -4605,8 +4601,11 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 		/* Cut off the bracket and advance */
 		*(p++) = '\0';
 
-		/* The address must be followed by a port specifier or a slash */
-		if (*p != ':' && *p != '/')
+		/* 
+		 * The address must be followed by a port specifier or a slash or a
+		 * query.
+		 */
+		if (*p && *p != ':' && *p != '/' && *p != '?')
 		{
 			printfPQExpBuffer(errorMessage,
 							  libpq_gettext("unexpected '%c' at position %td in URI (expecting ':' or '/'): %s\n"),
@@ -4618,40 +4617,29 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 	{
 		host = p;
 		/*
-		 * Look for port specifier (colon) or end of host specifier (slash)
+		 * Look for port specifier (colon) or end of host specifier (slash), or
+		 * query (question mark).
 		 */
-		while (*p && *p != ':' && *p != '/')
+		while (*p && *p != ':' && *p != '/' && *p != '?')
 			++p;
-		if (!*p)
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("end of string reached when looking for hostname/address specifier in URI: %s\n"),
-							  uri);
-			return false;
-		}
 	}
 
-	if (*p == ':')
-		has_port = true;
+	/* Save the hostname terminator before we null it */
+	lastc = *p;
 	*p = '\0';
 
 	if (!conninfo_store_uri_encoded_value(options, "host", host, errorMessage,
 										  false))
 		return false;
 
-	if (has_port)
+	if (lastc == ':')
 	{
 		const char *port = ++p; /* advance past host terminator */
 
-		while (*p && *p != '/')
+		while (*p && *p != '/' && *p != '?')
 			++p;
-		if (!*p)
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("end of string reached when looking for port specifier in URI: %s\n"),
-							  uri);
-			return false;
-		}
+
+		lastc = *p;
 		*p = '\0';
 
 		if (!conninfo_store_uri_encoded_value(options, "port", port,
@@ -4659,23 +4647,25 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char* uri,
 			return false;
 	}
 
-	/* `p' must be pointing at the slash at this time, advance */
-	dbname = ++p;
-	while (*p && *p != '?')
-		++p;
-
-	/* Check for extra parameters */
-	if (*p == '?')
-		has_params = true;
-	*p = '\0';
-
-	if (!conninfo_store_uri_encoded_value(options, "dbname", dbname,
-										  errorMessage, false))
-		return false;
-
-	if (has_params)
+	if (lastc && lastc != '?')
 	{
-		++p; /* advance past dbname terminator */
+		const char *dbname = ++p; /* advance past host terminator */
+
+		/* Look for query parameters */
+		while (*p && *p != '?')
+			++p;
+
+		lastc = *p;
+		*p = '\0';
+
+		if (!conninfo_store_uri_encoded_value(options, "dbname", dbname,
+											  errorMessage, false))
+			return false;
+	}
+
+	if (lastc)
+	{
+		++p; /* advance past terminator */
 
 		if (!conninfo_uri_parse_params(p, options, errorMessage))
 			return false;
@@ -4736,8 +4726,13 @@ conninfo_uri_parse_params(char *params,
 		 * In theory, the keyword might be also percent-encoded, but hardly
 		 * that's ever needed by anyone.
 		 */
-		conninfo_store_uri_encoded_value(connOptions, keyword, value,
-										 errorMessage, true);
+		if (!conninfo_store_uri_encoded_value(connOptions, keyword, value,
+											  errorMessage, true))
+		{
+			fprintf(stderr,
+					libpq_gettext("WARNING: ignoring unrecognized URI query parameter: %s\n"),
+					keyword);
+		}
 
 		params = NULL; /* proceed to the next token with strtok_r */
 	}
