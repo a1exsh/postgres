@@ -16,7 +16,6 @@ postgresql://localhost/${PGUSER}?user=${PGUSER}&port=${PGPORT}
 postgresql://localhost/${PGUSER}?user=${PGUSER}&port=${PGPORT}
 postgresql://localhost:${PGPORT}?user=${PGUSER}
 postgresql://localhost?user=${PGUSER}
-postgresql://localhost?uzer=
 postgresql://localhost?
 postgresql://[::1]:${PGPORT}/${PGUSER}
 postgresql://[::1]/${PGUSER}
@@ -24,3 +23,13 @@ postgresql://[::1]/
 postgresql://[::1]
 postgres://
 postgres:///tmp
+postgresql://localhost?uzer=
+postgre://
+postgres://[::1
+postgres://[]
+postgres://[::1]z
+postgresql://localhost?zzz
+postgresql://%zz
+postgresql://%1
+postgresql://%
+

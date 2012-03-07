@@ -18,7 +18,7 @@ do
     # But SELECT the original line, so test result doesn't depend on
     # the substituted values.
     "${BINDIR}/psql" -d "$uri" -At -c "SELECT '$line'"
-done <regress.in >regress.out
+done <regress.in >regress.out 2>&1
 
 if diff -c expected.out regress.out >regress.diff; then
     echo "========================================"
@@ -28,7 +28,7 @@ else
     echo "========================================"
     echo "FAILED: the test result differs from the expected output"
     echo
-    echo "Review the difference in regress.diff"
+    echo "Review the difference in ${SUBDIR}/regress.diff"
     echo "========================================"
     exit 1
 fi

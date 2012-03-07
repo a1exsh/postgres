@@ -16,7 +16,6 @@ postgresql://localhost/${PGUSER}?user=${PGUSER}&port=${PGPORT}
 postgresql://localhost/${PGUSER}?user=${PGUSER}&port=${PGPORT}
 postgresql://localhost:${PGPORT}?user=${PGUSER}
 postgresql://localhost?user=${PGUSER}
-postgresql://localhost?uzer=
 postgresql://localhost?
 postgresql://[::1]:${PGPORT}/${PGUSER}
 postgresql://[::1]/${PGUSER}
@@ -24,3 +23,14 @@ postgresql://[::1]/
 postgresql://[::1]
 postgres://
 postgres:///tmp
+WARNING: ignoring unrecognized URI query parameter: uzer
+postgresql://localhost?uzer=
+psql: FATAL:  database "postgre://" does not exist
+psql: end of string reached when looking for matching ']' in IPv6 host address in URI: postgres://[::1
+psql: IPv6 host address may not be empty in URI: postgres://[]
+psql: unexpected 'z' at position 17 in URI (expecting ':' or '/'): postgres://[::1]z
+psql: missing key/value separator '=' in URI query parameter: zzz
+psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %zz
+psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %1
+psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %
+

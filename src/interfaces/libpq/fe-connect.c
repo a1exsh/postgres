@@ -308,14 +308,6 @@ static PQconninfoOption *conninfo_uri_parse(const char *uri,
 static bool conninfo_uri_parse_options(PQconninfoOption *options,
 				const char *uri, char *buf,
 				PQExpBuffer errorMessage);
-static char *conninfo_uri_parse_local_socket_dir(PQconninfoOption *options,
-				const char *uri,
-				char *buf, char *lastc,
-				PQExpBuffer errorMessage);
-static char *conninfo_uri_parse_remote_host(PQconninfoOption *options,
-				const char *uri,
-				char *buf, char *lastc,
-				PQExpBuffer errorMessage);
 static bool conninfo_uri_parse_params(char *params,
 				PQconninfoOption *connOptions,
 				PQExpBuffer errorMessage);
@@ -4539,21 +4531,146 @@ static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 						   char *buf, PQExpBuffer errorMessage)
 {
-	char *p = buf;
+	char *p;
+	char *start = buf;
 	char lastc = '\0';
 
 	/* Assume URI prefix is already verified by the caller */
-	if (strncmp(p, uri_designator, sizeof(uri_designator) - 1) == 0)
-		p += sizeof(uri_designator) - 1;
+	if (strncmp(uri, uri_designator, sizeof(uri_designator) - 1) == 0)
+		start += sizeof(uri_designator) - 1;
 	else
-		p += sizeof(short_uri_designator) - 1;
+		start += sizeof(short_uri_designator) - 1;
+	p = start;
 
+	/* Check for local unix socket dir at start of URI */
 	if (*p == '/')
-		p = conninfo_uri_parse_local_socket_dir(options, uri, p, &lastc, errorMessage);
+	{
+		/* Look for possible query parameters */
+		while (*p && *p != '?')
+			++p;
+		lastc = *p;
+		*p = '\0';
+
+		if (!conninfo_store_uri_encoded_value(options, "host", start, errorMessage,
+											  false))
+			return false;
+	}
 	else
-		p = conninfo_uri_parse_remote_host(options, uri, p, &lastc, errorMessage);
-	if (!p)
-		return false;
+	{
+		/* Not a unix socket dir: parse as host name/address */
+		const char *host;
+
+		/* Look ahead for possible user credentials designator */
+		while (*p && *p != '@' && *p != '/')
+			++p;
+		if (*p != '@')
+		{
+			/* Reset to start of URI and parse as hostname/addr instead */
+			p = start;
+		}
+		else
+		{
+			char *user = start;
+
+			p = user;
+			while (*p != ':' && *p != '@')
+				++p;
+
+			/* Save last char and cut off at end of user name */
+			lastc = *p;
+			*p = '\0';
+
+			if (!conninfo_store_uri_encoded_value(options, "user", user,
+												  errorMessage, false))
+				return false;
+
+			if (lastc == ':')
+			{
+				const char *password = p + 1;
+
+				while (*p != '@')
+					++p;
+				*p = '\0';
+
+				if (!conninfo_store_uri_encoded_value(options, "password", password,
+													  errorMessage, false))
+					return false;
+			}
+
+			/* Advance past end of parsed user name or password token */
+			++p;
+		}
+
+		/* Look for IPv6 address */
+		if (*p == '[')
+		{
+			host = ++p;
+			while (*p && *p != ']')
+				++p;
+			if (!*p)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("end of string reached when looking for matching ']' in IPv6 host address in URI: %s\n"),
+								  uri);
+				return false;
+			}
+			if (p == host)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("IPv6 host address may not be empty in URI: %s\n"),
+								  uri);
+				return false;
+			}
+
+			/* Cut off the bracket and advance */
+			*(p++) = '\0';
+
+			/* 
+			 * The address must be followed by a port specifier or a slash or a
+			 * query.
+			 */
+			if (*p && *p != ':' && *p != '/' && *p != '?')
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("unexpected '%c' at position %td in URI (expecting ':' or '/'): %s\n"),
+								  *p, p - buf + 1, uri);
+				return false;
+			}
+		}
+		else /* no IPv6 address */
+		{
+			host = p;
+			/*
+			 * Look for port specifier (colon) or end of host specifier (slash), or
+			 * query (question mark).
+			 */
+			while (*p && *p != ':' && *p != '/' && *p != '?')
+				++p;
+		}
+
+		/* Save the hostname terminator before we null it */
+		lastc = *p;
+		*p = '\0';
+
+		if (!conninfo_store_uri_encoded_value(options, "host", host, errorMessage,
+											  false))
+			return false;
+
+		if (lastc == ':')
+		{
+			const char *port = ++p; /* advance past host terminator */
+
+			while (*p && *p != '/' && *p != '?')
+				++p;
+
+			lastc = *p;
+			*p = '\0';
+
+			if (!conninfo_store_uri_encoded_value(options, "port", port,
+												  errorMessage, false))
+				return false;
+		}
+	}
 
 	if (lastc && lastc != '?')
 	{
@@ -4580,146 +4697,6 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	}
 
 	return true;
-}
-
-static char *
-conninfo_uri_parse_local_socket_dir(PQconninfoOption *options, const char *uri,
-									char *buf, char *lastc, PQExpBuffer errorMessage)
-{
-	char *p = buf;
-
-	/* Look for possible query parameters */
-	while (*p && *p != '?')
-		++p;
-	*lastc = *p;
-	*p = '\0';
-
-	if (!conninfo_store_uri_encoded_value(options, "host", buf, errorMessage,
-										  false))
-		return NULL;
-
-	return p;
-}
-
-static char *
-conninfo_uri_parse_remote_host(PQconninfoOption *options, const char *uri,
-							   char *buf, char *lastc, PQExpBuffer errorMessage)
-{
-	const char *host;
-	char *p = buf;
-
-	/* Look ahead for possible user credentials designator */
-	while (*p && *p != '@' && *p != '/')
-		++p;
-	if (*p != '@')
-	{
-		/* Reset to start of URI and parse as hostname/addr instead */
-		p = buf;
-	}
-	else
-	{
-		char *user = buf;
-
-		p = user;
-		while (*p != ':' && *p != '@')
-			++p;
-
-		/* Save last char and cut off at end of user name */
-		*lastc = *p;
-		*p = '\0';
-
-		if (!conninfo_store_uri_encoded_value(options, "user", user,
-											  errorMessage, false))
-			return NULL;
-
-		if (*lastc == ':')
-		{
-			const char *password = p + 1;
-
-			while (*p != '@')
-				++p;
-			*p = '\0';
-
-			if (!conninfo_store_uri_encoded_value(options, "password", password,
-												  errorMessage, false))
-				return NULL;
-		}
-
-		/* Advance past end of parsed user name or password token */
-		++p;
-	}
-
-	/* Look for IPv6 address */
-	if (*p == '[')
-	{
-		host = ++p;
-		while (*p && *p != ']')
-			++p;
-		if (!*p)
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("end of string reached when looking for matching ']' in IPv6 host address in URI: %s\n"),
-							  uri);
-			return NULL;
-		}
-		if (p == host)
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("IPv6 host address may not be empty in URI: %s\n"),
-							  uri);
-			return NULL;
-		}
-
-		/* Cut off the bracket and advance */
-		*(p++) = '\0';
-
-		/* 
-		 * The address must be followed by a port specifier or a slash or a
-		 * query.
-		 */
-		if (*p && *p != ':' && *p != '/' && *p != '?')
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("unexpected '%c' at position %td in URI (expecting ':' or '/'): %s\n"),
-							  *p, p - buf + 1, uri);
-			return NULL;
-		}
-	}
-	else /* no IPv6 address */
-	{
-		host = p;
-		/*
-		 * Look for port specifier (colon) or end of host specifier (slash), or
-		 * query (question mark).
-		 */
-		while (*p && *p != ':' && *p != '/' && *p != '?')
-			++p;
-	}
-
-	/* Save the hostname terminator before we null it */
-	*lastc = *p;
-	*p = '\0';
-
-	if (!conninfo_store_uri_encoded_value(options, "host", host, errorMessage,
-										  false))
-		return NULL;
-
-	if (*lastc == ':')
-	{
-		const char *port = ++p; /* advance past host terminator */
-
-		while (*p && *p != '/' && *p != '?')
-			++p;
-
-		*lastc = *p;
-		*p = '\0';
-
-		if (!conninfo_store_uri_encoded_value(options, "port", port,
-											  errorMessage, false))
-			return NULL;
-	}
-
-	return p;
 }
 
 /*
@@ -4828,6 +4805,10 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 
 			++q; /* skip the percent sign itself */
 
+			/*
+			 * Possible EOL will be caught by the first call to get_hexdigit(),
+			 * so we never dereference an invalid q pointer.
+			 */
 			if (!(get_hexdigit(*q++, &hi) && get_hexdigit(*q++, &lo)))
 			{
 				printfPQExpBuffer(errorMessage,
