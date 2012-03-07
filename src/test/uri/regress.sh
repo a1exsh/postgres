@@ -2,8 +2,13 @@
 if [ -z "$PGUSER" ]; then
 PGUSER=$USER
 fi
+if [ -z "$PGPORT" ]; then
+PGPORT=5432
+fi
 
 "${BINDIR}/createdb" "$PGUSER"
+
+echo "Running libpq URI support test..."
 
 while read uri
 do

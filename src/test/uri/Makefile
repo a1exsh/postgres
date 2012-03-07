@@ -5,7 +5,6 @@ include $(top_builddir)/src/Makefile.global
 all: installcheck
 
 installcheck:
-	@echo 'Running libpq URI support test...'
 	BINDIR='$(bindir)' $(SHELL) ./regress.sh
 
 clean:
