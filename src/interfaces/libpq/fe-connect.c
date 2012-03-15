@@ -4538,9 +4538,22 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 
 	/* Assume URI prefix is already verified by the caller */
 	if (strncmp(uri, uri_designator, sizeof(uri_designator) - 1) == 0)
+	{
 		start += sizeof(uri_designator) - 1;
-	else
+	}
+	else if (strncmp(uri, short_uri_designator,
+					 sizeof(short_uri_designator) - 1) == 0)
+	{
 		start += sizeof(short_uri_designator) - 1;
+	}
+	else
+	{
+		/* Should never happen */
+		printfPQExpBuffer(errorMessage,
+						  libpq_gettext("invalid URI \"%s\" propagated to internal parser routine"),
+						  uri);
+		return false;
+	}
 	p = start;
 
 	/* Check for local unix socket dir at start of URI */
@@ -4566,11 +4579,20 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			++p;
 		if (*p != '@')
 		{
-			/* Reset to start of URI and parse as hostname/addr instead */
+			/*
+			 * No username/password designator found.
+			 *
+			 * Reset to start of URI and parse as "scheme://netloc/..."
+			 * instead.
+			 */
 			p = start;
 		}
 		else
 		{
+			/*
+			 * Found username/password designator, so URI should be of the form
+			 * "scheme://user@netloc" or "scheme://user:password@netloc".
+			 */
 			user = start;
 
 			p = user;
@@ -4617,7 +4639,12 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			++p;
 		}
 
-		/* Look for IPv6 address */
+		/*
+		 * "p" has been incremented past optional URI credential information at
+		 * this point and now points at the "netloc" part of the URI.
+		 *
+		 * Look for IPv6 address 
+		 */
 		if (*p == '[')
 		{
 			host = ++p;
@@ -4653,12 +4680,14 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				return false;
 			}
 		}
-		else /* no IPv6 address */
+		else
 		{
+			/* not an IPv6 address: DNS-named or IPv4 netloc */
 			host = p;
+
 			/*
-			 * Look for port specifier (colon) or end of host specifier (slash), or
-			 * query (question mark).
+			 * Look for port specifier (colon) or end of host specifier
+			 * (slash), or query (question mark).
 			 */
 			while (*p && *p != ':' && *p != '/' && *p != '?')
 				++p;
