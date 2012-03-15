@@ -5,8 +5,12 @@ fi
 if [ -z "$PGPORT" ]; then
 PGPORT=5432
 fi
+if [ -z "$PGDATABASE" ]; then
+PGDATABASE=regression
+fi
+export PGUSER PGPORT PGDATABASE
 
-"${BINDIR}/createdb" "$PGUSER"
+"${BINDIR}/createdb" "${PGDATABASE}"
 
 echo "Running libpq URI support test..."
 

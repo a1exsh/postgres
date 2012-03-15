@@ -4534,6 +4534,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	char *p;
 	char *start = buf;
 	char lastc = '\0';
+	char *user = NULL;
 
 	/* Assume URI prefix is already verified by the caller */
 	if (strncmp(uri, uri_designator, sizeof(uri_designator) - 1) == 0)
@@ -4551,8 +4552,8 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		lastc = *p;
 		*p = '\0';
 
-		if (!conninfo_store_uri_encoded_value(options, "host", start, errorMessage,
-											  false))
+		if (!conninfo_store_uri_encoded_value(options, "host", start,
+											  errorMessage, false))
 			return false;
 	}
 	else
@@ -4570,7 +4571,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		}
 		else
 		{
-			char *user = start;
+			user = start;
 
 			p = user;
 			while (*p != ':' && *p != '@')
@@ -4580,6 +4581,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			lastc = *p;
 			*p = '\0';
 
+			if (!*user)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("missing username specifier in URI: %s\n"),
+								  uri);
+				return false;
+			}
 			if (!conninfo_store_uri_encoded_value(options, "user", user,
 												  errorMessage, false))
 				return false;
@@ -4592,7 +4600,15 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 					++p;
 				*p = '\0';
 
-				if (!conninfo_store_uri_encoded_value(options, "password", password,
+				if (!*password)
+				{
+					printfPQExpBuffer(errorMessage,
+									  libpq_gettext("missing password specifier in URI: %s\n"),
+									  uri);
+					return false;
+				}
+				if (!conninfo_store_uri_encoded_value(options, "password",
+													  password,
 													  errorMessage, false))
 					return false;
 			}
@@ -4652,8 +4668,15 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		lastc = *p;
 		*p = '\0';
 
-		if (!conninfo_store_uri_encoded_value(options, "host", host, errorMessage,
-											  false))
+		if (user && !*host)
+		{
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("must specify host when using username specifier in URI: %s\n"),
+							  uri);
+			return false;
+		}
+		if (!conninfo_store_uri_encoded_value(options, "host", host,
+											  errorMessage, false))
 			return false;
 
 		if (lastc == ':')
@@ -4666,6 +4689,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			lastc = *p;
 			*p = '\0';
 
+			if (!*port)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("missing port specifier in URI: %s\n"),
+								  uri);
+				return false;
+			}
 			if (!conninfo_store_uri_encoded_value(options, "port", port,
 												  errorMessage, false))
 				return false;
@@ -4683,7 +4713,13 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		lastc = *p;
 		*p = '\0';
 
-		if (!conninfo_store_uri_encoded_value(options, "dbname", dbname,
+		/*
+		 * Avoid setting dbname to an empty string, as it forces the default
+		 * value (username) and ignores $PGDATABASE, as opposed to not setting
+		 * it at all.
+		 */
+		if (*dbname &&
+			!conninfo_store_uri_encoded_value(options, "dbname", dbname,
 											  errorMessage, false))
 			return false;
 	}
