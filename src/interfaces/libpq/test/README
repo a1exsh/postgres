@@ -11,8 +11,9 @@ then comparing that to the expected 'correct' output.
 The test script assumes that the server is running on localhost and
 accepting local and IPv4,6 connections on port $PGPORT.  Attempts to
 connect are made from user $PGUSER (which defaults to $USER,) to the
-default database (that is, $PGUSER again.)  The default database is
-created by the script prior to running the actual tests.
+database specified in $PGDATABASE (which defaults to "regression".)
+The database is created by the script prior to running the actual
+tests.
 
 The connection URI lines to test are read from the file 'regress.in',
 and are eval-d before passing them to psql (like `eval echo $line`,)
