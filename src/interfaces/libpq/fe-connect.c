@@ -4577,17 +4577,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		/* Look ahead for possible user credentials designator */
 		while (*p && *p != '@' && *p != '/')
 			++p;
-		if (*p != '@')
-		{
-			/*
-			 * No username/password designator found.
-			 *
-			 * Reset to start of URI and parse as "scheme://netloc/..."
-			 * instead.
-			 */
-			p = start;
-		}
-		else
+		if (*p == '@')
 		{
 			/*
 			 * Found username/password designator, so URI should be of the form
@@ -4637,6 +4627,16 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 
 			/* Advance past end of parsed user name or password token */
 			++p;
+		}
+		else
+		{
+			/*
+			 * No username/password designator found.
+			 *
+			 * Reset to start of URI and parse as "scheme://netloc/..."
+			 * instead.
+			 */
+			p = start;
 		}
 
 		/*
