@@ -296,9 +296,10 @@ static void fillPGconn(PGconn *conn, PQconninfoOption *connOptions);
 static void freePGconn(PGconn *conn);
 static void closePGconn(PGconn *conn);
 static PQconninfoOption *conninfo_init(PQExpBuffer errorMessage);
-static bool parse_connection_string(const char *conninfo,
-			   PQExpBuffer errorMessage, bool use_defaults,
-			   PQconninfoOption **options);
+static PQconninfoOption *parse_connection_string(const char *conninfo,
+			   PQExpBuffer errorMessage, bool use_defaults);
+static int uri_prefix_length(const char *connstr);
+static bool recognized_connection_string(const char *connstr);
 static PQconninfoOption *conninfo_parse(const char *conninfo,
 			   PQExpBuffer errorMessage, bool use_defaults);
 static PQconninfoOption *conninfo_array_parse(const char *const * keywords,
@@ -700,12 +701,12 @@ fillPGconn(PGconn *conn, PQconninfoOption *connOptions)
 static bool
 connectOptions1(PGconn *conn, const char *conninfo)
 {
-	PQconninfoOption *connOptions = NULL;
+	PQconninfoOption *connOptions;
 
 	/*
 	 * Parse the conninfo string
 	 */
-	parse_connection_string(conninfo, &conn->errorMessage, true, &connOptions);
+	connOptions = parse_connection_string(conninfo, &conn->errorMessage, true);
 	if (connOptions == NULL)
 	{
 		conn->status = CONNECTION_BAD;
@@ -909,7 +910,7 @@ PQsetdbLogin(const char *pghost, const char *pgport, const char *pgoptions,
 	 * If the dbName parameter contains a connection string, parse it into conn
 	 * struct using connectOptions1.
 	 */
-	if (dbName && parse_connection_string(dbName, NULL, false, NULL))
+	if (dbName && recognized_connection_string(dbName))
 	{
 		if (!connectOptions1(conn, dbName))
 			return conn;
@@ -4010,14 +4011,14 @@ PQconninfoOption *
 PQconninfoParse(const char *conninfo, char **errmsg)
 {
 	PQExpBufferData errorBuf;
-	PQconninfoOption *connOptions = NULL;
+	PQconninfoOption *connOptions;
 
 	if (errmsg)
 		*errmsg = NULL;			/* default */
 	initPQExpBuffer(&errorBuf);
 	if (PQExpBufferDataBroken(errorBuf))
 		return NULL;			/* out of memory already :-( */
-	parse_connection_string(conninfo, &errorBuf, false, &connOptions);
+	connOptions = parse_connection_string(conninfo, &errorBuf, false);
 	if (connOptions == NULL && errmsg)
 		*errmsg = errorBuf.data;
 	else
@@ -4046,57 +4047,48 @@ conninfo_init(PQExpBuffer errorMessage)
 
 /*
  * Connection string parser dispatcher
+ */
+static PQconninfoOption *
+parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
+						bool use_defaults)
+{
+	/* Parse as URI if connection string matches URI prefix */
+	if (uri_prefix_length(connstr) != 0)
+		return conninfo_uri_parse(connstr, errorMessage, use_defaults);
+
+	/* Parse as default otherwise */
+	return conninfo_parse(connstr, errorMessage, use_defaults);
+}
+
+/*
+ * Checks if connection string starts with either of the valid URI prefix
+ * designators.
  *
- * Checks if the passed string looks like a connection string (either conninfo
- * or URI) and optionally parses it into a malloc'd array of PQconninfoOption.
- *
- * To avoid actually parsing the string pass NULL in place of the "options"
- * parameter.
- *
- * Defaults are supplied (from a service file, environment variables, etc) for
- * unspecified options, but only if use_defaults is TRUE.
- *
- * Returns TRUE if connstr was recognized as a connection string, regardless of
- * the actual parse result; FALSE if it wasn't (and also fills the
- * "errorMessage" parameter.)
- *
- * When connstr is recognized as a connection string, but a parse error occurs,
- * the "options" output parameter is set to NULL and "errorMessage" is filled
- * in.
+ * Returns the URI prefix length, 0 if the string doesn't contain a URI prefix.
+ */
+static int
+uri_prefix_length(const char *connstr)
+{
+	if (strncmp(connstr, uri_designator,
+				sizeof(uri_designator) - 1) == 0)
+		return sizeof(uri_designator) - 1;
+
+	if (strncmp(connstr, short_uri_designator,
+				sizeof(short_uri_designator) - 1) == 0)
+		return sizeof(short_uri_designator) - 1;
+
+	return 0;
+}
+
+/*
+ * Recognized connection string either starts with a valid URI prefix or
+ * contains a "=" in it.
  */
 static bool
-parse_connection_string(const char *connstr, PQExpBuffer errorMessage,
-						bool use_defaults, PQconninfoOption **options)
+recognized_connection_string(const char *connstr)
 {
-	/*
-	 * Look for URI prefix.  This has to come before the check for "=",
-	 * since URI might as well contain "=" if extra parameters are
-	 * given.
-	 */
-	if ((strncmp(connstr, uri_designator,
-				 sizeof(uri_designator) - 1) == 0) ||
-		(strncmp(connstr, short_uri_designator,
-				 sizeof(short_uri_designator) - 1) == 0))
-	{
-		if (options)
-			*options = conninfo_uri_parse(connstr, errorMessage);
-		return true;
-	}
-
-	/* next look for "=" in the connection string */
-	if (strchr(connstr, '='))
-	{
-		if (options)
-			*options = conninfo_parse(connstr, errorMessage, use_defaults);
-		return true;
-	}
-
-	/* None of the above checks worked, so it's not a connection string */
-	if (errorMessage)
-		printfPQExpBuffer(errorMessage,
-						  libpq_gettext("invalid connection string: %s\n"),
-						  connstr);
-	return false;
+	return uri_prefix_length(connstr) != 0 ||
+		strchr(connstr, '=') != NULL;
 }
 
 /*
@@ -4305,27 +4297,15 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 		if (strcmp(pname, "dbname") == 0 && pvalue)
 		{
 			/*
-			 * If value is a conninfo string, parse it, but do not use defaults
+			 * If value is a connection string, parse it, but do not use defaults
 			 * here -- those get picked up later. We only want to override for
 			 * those parameters actually passed.
 			 */
-			if (parse_connection_string(pvalue, errorMessage, false,
-										&str_options))
+			if (recognized_connection_string(pvalue))
 			{
-				/*
-				 * This was an invalid connectiong string.  The error message
-				 * should be already filled in, so just bail out.
-				 */
+				str_options = parse_connection_string(pvalue, errorMessage, false);
 				if (str_options == NULL)
 					return NULL;
-			}
-			else
-			{
-				/*
-				 * This was not a connection string, but a database name
-				 * instead.  Clear the 'invalid connection string' message.
-				 */
-				resetPQExpBuffer(errorMessage);
 			}
 			break;
 		}
@@ -4599,22 +4579,15 @@ static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 						   char *buf, PQExpBuffer errorMessage)
 {
+	int prefix_len;
 	char *p;
 	char *start = buf;
 	char lastc = '\0';
 	char *user = NULL;
 
-	/* Assume URI prefix is already verified by the caller */
-	if (strncmp(uri, uri_designator, sizeof(uri_designator) - 1) == 0)
-	{
-		start += sizeof(uri_designator) - 1;
-	}
-	else if (strncmp(uri, short_uri_designator,
-					 sizeof(short_uri_designator) - 1) == 0)
-	{
-		start += sizeof(short_uri_designator) - 1;
-	}
-	else
+	/* Skip the URI prefix */
+	prefix_len = uri_prefix_length(uri);
+	if (prefix_len == 0)
 	{
 		/* Should never happen */
 		printfPQExpBuffer(errorMessage,
@@ -4622,6 +4595,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 						  uri);
 		return false;
 	}
+	start += prefix_len;
 	p = start;
 
 	/* Check for local unix socket dir at start of URI */
