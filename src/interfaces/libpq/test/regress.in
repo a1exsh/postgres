@@ -29,6 +29,7 @@ postgres://[::1
 postgres://[]
 postgres://[::1]z
 postgresql://localhost?zzz
+postgres://localhost?dbname=%XXfoo
 postgresql://%00
 postgresql://%zz
 postgresql://%1

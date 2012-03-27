@@ -30,6 +30,7 @@ psql: end of string reached when looking for matching ']' in IPv6 host address i
 psql: IPv6 host address may not be empty in URI: postgres://[]
 psql: unexpected 'z' at position 17 in URI (expecting ':' or '/'): postgres://[::1]z
 psql: missing key/value separator '=' in URI query parameter: zzz
+psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %XXfoo
 psql: '%00' is forbidden in percent-encoded token: %00
 psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %zz
 psql: invalid percent-encoded token (a pair of hexadecimal digits expected after every '%' symbol, use '%25' to encode percent symbol itself): %1

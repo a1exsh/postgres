@@ -4861,6 +4861,13 @@ conninfo_uri_parse_params(char *params,
 		if (!conninfo_store_uri_encoded_value(connOptions, keyword, value,
 											  errorMessage, true))
 		{
+			/*
+			 * Check if there was a hard error when decoding or storing the
+			 * option.
+			 */
+			if (PQExpBufferBroken(errorMessage) || *(errorMessage->data))
+				return false;
+
 			fprintf(stderr,
 					libpq_gettext("WARNING: ignoring unrecognized URI query parameter: %s\n"),
 					keyword);
@@ -4997,6 +5004,8 @@ conninfo_getval(PQconninfoOption *connOptions,
  * The existing value for the option is free'd before replacing, if any.
  *
  * If not successful, returns NULL and fills errorMessage accordingly.
+ * However, if the reason of faliure is an invalid keyword being passed and
+ * ignoreMissing is TRUE, errorMessage will be left untouched.
  */
 static PQconninfoOption *
 conninfo_storeval(PQconninfoOption *connOptions,
