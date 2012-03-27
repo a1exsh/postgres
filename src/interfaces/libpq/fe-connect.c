@@ -4909,6 +4909,7 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 		{
 			int hi;
 			int lo;
+			int c;
 
 			++q; /* skip the percent sign itself */
 
@@ -4925,7 +4926,16 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 				return NULL;
 			}
 
-			*(p++) = (hi << 4) | lo;
+			c = (hi << 4) | lo;
+			if (c == 0)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("'%%00' is forbidden in percent-encoded token: %s\n"),
+								  str);
+				free(buf);
+				return NULL;
+			}
+			*(p++) = c;
 		}
 	}
 
