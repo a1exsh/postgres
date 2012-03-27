@@ -4865,7 +4865,7 @@ conninfo_uri_parse_params(char *params,
 			 * Check if there was a hard error when decoding or storing the
 			 * option.
 			 */
-			if (PQExpBufferBroken(errorMessage) || *(errorMessage->data))
+			if (PQExpBufferBroken(errorMessage) || errorMessage->len != 0)
 				return false;
 
 			fprintf(stderr,
@@ -5004,7 +5004,7 @@ conninfo_getval(PQconninfoOption *connOptions,
  * The existing value for the option is free'd before replacing, if any.
  *
  * If not successful, returns NULL and fills errorMessage accordingly.
- * However, if the reason of faliure is an invalid keyword being passed and
+ * However, if the reason of failure is an invalid keyword being passed and
  * ignoreMissing is TRUE, errorMessage will be left untouched.
  */
 static PQconninfoOption *
