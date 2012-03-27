@@ -359,9 +359,9 @@ pgthreadlock_t pg_g_threadlock = default_threadlock;
  * to the latter).
  *
  * If it is desired to connect in a synchronous (blocking) manner, use the
- * function PQconnectdb or PQconnectdbParams. The former accepts a string
- * of option = value pairs which must be parsed; the latter takes two NULL
- * terminated arrays instead.
+ * function PQconnectdb or PQconnectdbParams. The former accepts a string of
+ * option = value pairs (or a URI) which must be parsed; the latter takes two
+ * NULL terminated arrays instead.
  *
  * To connect in an asynchronous (non-blocking) manner, use the functions
  * PQconnectStart or PQconnectStartParams (which differ in the same way as
@@ -432,13 +432,14 @@ PQpingParams(const char *const * keywords,
  * establishes a connection to a postgres backend through the postmaster
  * using connection information in a string.
  *
- * The conninfo string is a white-separated list of
+ * The conninfo string is a whitespace-separated list of
  *
  *	   option = value
  *
- * definitions. Value might be a single value containing no whitespaces or
- * a single quoted string. If a single quote should appear anywhere in
- * the value, it must be escaped with a backslash like \'
+ * definitions or a URI (see comment for conninfo_uri_parse for details.) Value
+ * might be a single value containing no whitespaces or a single quoted
+ * string. If a single quote should appear anywhere in the value, it must be
+ * escaped with a backslash like \'
  *
  * Returns a PGconn* which is needed for all subsequent libpq calls, or NULL
  * if a memory allocation failed.
@@ -4269,10 +4270,10 @@ conninfo_parse(const char *conninfo, PQExpBuffer errorMessage,
  * Defaults are supplied (from a service file, environment variables, etc)
  * for unspecified options, but only if use_defaults is TRUE.
  *
- * If expand_dbname is non-zero, and the value passed for keyword "dbname"
- * contains an "=", assume it is a conninfo string and process it,
- * overriding any previously processed conflicting keywords. Subsequent
- * keywords will take precedence, however.
+ * If expand_dbname is non-zero, and the value passed for keyword "dbname" is a
+ * connection string (as indicated by recognized_connection_string) then parse
+ * and process it, overriding any previously processed conflicting
+ * keywords. Subsequent keywords will take precedence, however.
  */
 static PQconninfoOption *
 conninfo_array_parse(const char *const * keywords, const char *const * values,
@@ -4286,7 +4287,7 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 
 	/*
 	 * If expand_dbname is non-zero, check keyword "dbname" to see if val is
-	 * actually a conninfo string
+	 * actually a recognized connection string.
 	 */
 	while (expand_dbname && keywords[i])
 	{
@@ -4349,8 +4350,8 @@ conninfo_array_parse(const char *const * keywords, const char *const * values,
 
 			/*
 			 * If we are on the dbname parameter, and we have a parsed
-			 * conninfo string, copy those parameters across, overriding any
-			 * existing previous settings
+			 * connection string, copy those parameters across, overriding any
+			 * existing previous settings.
 			 */
 			if (strcmp(pname, "dbname") == 0 && str_options)
 			{
@@ -4555,7 +4556,7 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
  * Connection URI parser: actual parser routine
  *
  * If successful, returns true while the options array is filled with parsed
- * options from the passed URI
+ * options from the URI.
  * If not successful, returns false and fills errorMessage accordingly.
  *
  * Parses the connection URI string in 'buf' (while destructively modifying
@@ -4567,13 +4568,24 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
  *
  *   postgresql://user:pw@host:port/database
  *
- * To specify a IPv6 host address, enclose the address in square brackets:
+ * The URI designator can be either "postgresql://" or "postgres://".  Each of
+ * the URI parts is optional, thus "postgresql://" is a valid connection URI
+ * (which specifies all the default option values.)
+ *
+ * The host part may be either hostname or an IP address.  To specify an IPv6
+ * host address, enclose it in square brackets, e.g.:
  *
  *   postgresql://[::1]/database
  *
- * Connection parameters may follow the base URI using this syntax:
+ * As a special case, the host part which starts with '/' is treated as a local
+ * Unix socket directory to look for the connection socket special file.
+ *
+ * Optional connection parameters may follow the base URI using this syntax:
  *
  *   postgresql://host/database?param1=value1&param2=value2&...
+ *
+ * Percent-encoding may be used to include a symbol with special meaning in any
+ * of the URI parts.
  */
 static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
