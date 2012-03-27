@@ -4927,7 +4927,7 @@ conninfo_uri_decode(const char *str, PQExpBuffer errorMessage)
 			if (!(get_hexdigit(*q++, &hi) && get_hexdigit(*q++, &lo)))
 			{
 				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("invalid percent-encoded token (a pair of hexadecimal digits expected after every '%%' symbol, use '%%25' to encode percent symbol itself): %s\n"),
+								  libpq_gettext("invalid percent-encoded token: %s\n"),
 								  str);
 				free(buf);
 				return NULL;
