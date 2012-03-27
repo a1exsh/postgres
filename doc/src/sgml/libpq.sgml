@@ -119,7 +119,7 @@ PGconn *PQconnectdbParams(const char * const *keywords,
       <para>
        When <literal>expand_dbname</literal> is non-zero, the
        <parameter>dbname</parameter> key word value is allowed to be recognized
-       as a <parameter>conninfo</parameter> string. See below for details.
+       as a connection string. See below for details.
       </para>
 
       <para>
@@ -639,10 +639,11 @@ PGconn *PQconnectdbParams(const char * const *keywords,
 
       <para>
         If <literal>expand_dbname</literal> is non-zero and
-        <parameter>dbname</parameter> contains an <symbol>=</symbol> sign, it
+        <parameter>dbname</parameter> either contains
+        an <symbol>=</symbol> sign or starts with a recognized <acronym>URI</acronym> prefix, it
         is taken as a <parameter>conninfo</parameter> string in exactly the same way as
         if it had been passed to <function>PQconnectdb</function>(see below). Previously
-        processed key words will be overridden by key words in the
+        processed key words will be overridden by parameters in the
         <parameter>conninfo</parameter> string.
       </para>
 
@@ -675,7 +676,8 @@ PGconn *PQconnectdb(const char *conninfo);
 
       <para>
        The passed string can be empty to use all default parameters, or it can
-       contain one or more parameter settings separated by whitespace.
+       contain one or more parameter settings separated by whitespace,
+       or it can contain a <acronym>URI</acronym> (see below.)
        Each parameter setting is in the form <literal>keyword = value</literal>.
        Spaces around the equal sign are optional. To write an empty value,
        or a value containing spaces, surround it with single quotes, e.g.,
@@ -686,6 +688,73 @@ PGconn *PQconnectdb(const char *conninfo);
 
       <para>
        The currently recognized parameter key words are the same as above.
+      </para>
+
+      <para>
+        The general form for connection <acronym>URI</acronym> is the
+        following:
+<synopsis>
+postgresql://user:pw@host:port/database
+</synopsis>
+      </para>
+
+      <para>
+        The <acronym>URI</acronym> designator can be
+        either <literal>postgresql://</literal> or
+        <literal>postgres://</literal> and each of the <acronym>URI</acronym> parts is
+        optional.  The following examples illustrate valid <acronym>URI</acronym> syntax
+        uses:
+<synopsis>
+postgresql://
+postgresql://localhost
+postgresql://localhost:5433
+postgresql://localhost/mydb
+postgresql://user@localhost
+postgresql://user:secret@localhost
+postgresql://other@localhost/otherdb
+</synopsis>
+      </para>
+      <para>
+        Optional connection parameters may follow the
+        base <acronym>URI</acronym> using this syntax:
+<synopsis>
+postgresql://host/database?param1=value1&amp;param2=value2&amp;...
+</synopsis>
+        Any connection parameters not listed above are ignored and a
+        warning message is sent to <filename>stderr</filename>.
+      </para>
+      <para>
+        For improved compatibility with JDBC
+        connection <acronym>URI</acronym> syntax, instances of
+        parameter <literal>ssl=true</literal> are translated
+        into <literal>sslmode=require</literal> (see above.)
+      </para>
+      <para>
+        Percent-encoding may be used to include a symbol with special
+        meaning in any of the <acronym>URI</acronym> parts.
+      </para>
+      <para>
+        The host part may be either hostname or an IP address.  To
+        specify an IPv6 host address, enclose it in square brackets,
+        e.g.:
+<synopsis>
+postgresql://[::1]/database
+</synopsis>
+        As a special case, the host part which starts
+        with <symbol>/</symbol> is treated as a local Unix socket
+        directory to look for the connection socket special file:
+<synopsis>
+postgresql:///path/to/pgsql/socket/dir
+</synopsis>
+        The whole connection string up to the extra parameters
+        designator (<symbol>?</symbol>) is treated as the absolute
+        path to the socket directory
+        (<literal>/path/to/pgsql/socket/dir</literal> in this
+        example.)  To specify a non-default database name in this case
+        use the following syntax:
+<synopsis>
+postgresql:///path/to/pgsql/socket/dir?dbname=other
+</synopsis>
       </para>
      </listitem>
     </varlistentry>
@@ -714,7 +783,8 @@ PGconn *PQsetdbLogin(const char *pghost,
       </para>
 
       <para>
-        If the <parameter>dbName</parameter> contains an <symbol>=</symbol> sign, it
+        If the <parameter>dbName</parameter> contains
+        an <symbol>=</symbol> sign or has a valid connection <acronym>URI</acronym> prefix, it
         is taken as a <parameter>conninfo</parameter> string in exactly the same way as
         if it had been passed to <function>PQconnectdb</function>, and the remaining
         parameters are then applied as above.

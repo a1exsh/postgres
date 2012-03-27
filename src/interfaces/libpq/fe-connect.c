@@ -436,7 +436,7 @@ PQpingParams(const char *const * keywords,
  *
  *	   option = value
  *
- * definitions or a URI (see comment for conninfo_uri_parse for details.) Value
+ * definitions or a URI (refer to the documentation for details.) Value
  * might be a single value containing no whitespaces or a single quoted
  * string. If a single quote should appear anywhere in the value, it must be
  * escaped with a backslash like \'
@@ -4564,28 +4564,7 @@ conninfo_uri_parse(const char *uri, PQExpBuffer errorMessage,
  * for error reporting and 'buf' should initially contain a writable copy of
  * 'uri'.
  *
- * The general form for connection URI is the following:
- *
- *   postgresql://user:pw@host:port/database
- *
- * The URI designator can be either "postgresql://" or "postgres://".  Each of
- * the URI parts is optional, thus "postgresql://" is a valid connection URI
- * (which specifies all the default option values.)
- *
- * The host part may be either hostname or an IP address.  To specify an IPv6
- * host address, enclose it in square brackets, e.g.:
- *
- *   postgresql://[::1]/database
- *
- * As a special case, the host part which starts with '/' is treated as a local
- * Unix socket directory to look for the connection socket special file.
- *
- * Optional connection parameters may follow the base URI using this syntax:
- *
- *   postgresql://host/database?param1=value1&param2=value2&...
- *
- * Percent-encoding may be used to include a symbol with special meaning in any
- * of the URI parts.
+ * The supported URI syntax is described in detail in the documentation.
  */
 static bool
 conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
