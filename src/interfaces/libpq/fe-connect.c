@@ -4999,9 +4999,7 @@ conninfo_getval(PQconninfoOption *connOptions,
  * Store a (new) value for an option corresponding to the keyword in
  * connOptions array.
  *
- * If uri_decode is true, the value is URI-decoded.  (In theory, the keyword
- * might be URI-encoded as well, but that's hardly necessary so we don't
- * support that.)
+ * If uri_decode is true, keyword and value are URI-decoded.
  *
  * If successful, returns a pointer to the corresponding PQconninfoOption,
  * which value is replaced with a strdup'd copy of the passed value string.
@@ -5017,16 +5015,27 @@ conninfo_storeval(PQconninfoOption *connOptions,
 				  PQExpBuffer errorMessage, bool ignoreMissing,
 				  bool uri_decode)
 {
-	PQconninfoOption *option = conninfo_find(connOptions, keyword);
+	PQconninfoOption *option;
 	char		   *value_copy;
+	char		   *keyword_copy = NULL;
 
+	if (uri_decode)
+	{
+		keyword_copy = conninfo_uri_decode(keyword, errorMessage);
+		if (keyword_copy == NULL)
+			/* conninfo_uri_decode already set an error message */
+			goto failed;
+	}
+
+	option = conninfo_find(connOptions,
+						   keyword_copy != NULL ? keyword_copy : keyword);
 	if (option == NULL)
 	{
 		if (!ignoreMissing)
 			printfPQExpBuffer(errorMessage,
 							  libpq_gettext("invalid connection option \"%s\"\n"),
 							  keyword);
-		return NULL;
+		goto failed;
 	}
 
 	if (uri_decode)
@@ -5034,7 +5043,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		value_copy = conninfo_uri_decode(value, errorMessage);
 		if (value_copy == NULL)
 			/* conninfo_uri_decode already set an error message */
-			return NULL;
+			goto failed;
 	}
 	else
 	{
@@ -5043,7 +5052,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		if (value_copy == NULL)
 		{
 			printfPQExpBuffer(errorMessage, libpq_gettext("out of memory\n"));
-			return NULL;
+			goto failed;
 		}
 	}
 
@@ -5051,7 +5060,14 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		free(option->val);
 	option->val = value_copy;
 
+	if (keyword_copy != NULL)
+		free(keyword_copy);
 	return option;
+
+failed:
+	if (keyword_copy != NULL)
+		free(keyword_copy);
+	return NULL;
 }
 
 /*
