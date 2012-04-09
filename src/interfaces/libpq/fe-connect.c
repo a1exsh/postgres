@@ -4829,28 +4829,55 @@ conninfo_uri_parse_params(char *params,
 						  PQconninfoOption *connOptions,
 						  PQExpBuffer errorMessage)
 {
-	char *token;
-	char *savep;
-
-	while ((token = strtok_r(params, "&", &savep)))
+	while (*params)
 	{
-		const char *keyword;
-		const char *value;
-		char *p = strchr(token, '=');
+		const char *keyword = params;
+		const char *value = NULL;
+		char *p = params;
 
-		if (p == NULL)
+		/*
+		 * Scan the params string for '=' and '&', markng the end of keyword
+		 * and value respectively.
+		 */
+		for (;;)
 		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("missing key/value separator '=' in URI query parameter: %s\n"),
-							  token);
-			return false;
+			if (*p == '=')
+			{
+				/* Was there '=' already? */
+				if (value != NULL)
+				{
+					printfPQExpBuffer(errorMessage,
+									  libpq_gettext("extra key/value separator '=' in URI query parameter: %s\n"),
+									  params);
+					return false;
+				}
+				/* Cut off keyword, advance to value */
+				*p = '\0';
+				value = ++p;
+			}
+			else if (*p == '&' || *p == '\0')
+			{
+				/* Cut off value */
+				*p = '\0';
+
+				/* Was there '=' at all? */
+				if (value == NULL)
+				{
+					printfPQExpBuffer(errorMessage,
+									  libpq_gettext("missing key/value separator '=' in URI query parameter: %s\n"),
+									  params);
+					return false;
+				}
+				/*
+				 * Advance, now pointing to start of the next parameter, if
+				 * any.
+				 */
+				++p;
+				break;
+			}
+			/* Advance, NUL is checked in the 'if' above */
+			++p;
 		}
-
-		/* Cut off keyword and advance to value */
-		*(p++) = '\0';
-
-		keyword = token;
-		value = p;
 
 		/* Special keyword handling for improved JDBC compatibility */
 		if (strcmp(keyword, "ssl") == 0 &&
@@ -4879,7 +4906,8 @@ conninfo_uri_parse_params(char *params,
 					keyword);
 		}
 
-		params = NULL; /* proceed to the next token with strtok_r */
+		/* Proceed to next key=value pair */
+		params = p;
 	}
 
 	return true;

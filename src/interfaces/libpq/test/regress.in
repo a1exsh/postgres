@@ -30,6 +30,8 @@ postgres://[::1
 postgres://[]
 postgres://[::1]z
 postgresql://localhost?zzz
+postgresql://localhost?value1&value2
+postgresql://localhost?key=key=value
 postgres://localhost?dbname=%XXfoo
 postgresql://a%00b
 postgresql://%zz

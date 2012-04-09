@@ -18,8 +18,8 @@ while read line
 do
 	echo "trying $line"
 
-	# First, expand variables in the test URI line.
-	uri=$(eval echo "$line")
+	# First, expand PG* variables in the test URI line.
+	uri=$(echo "$line" | sed -e 's/\${PGUSER}/'${PGUSER}'/g' -e 's/\${PGPORT}/'${PGPORT}'/g' -e 's/\${PGDATABASE}/'${PGDATABASE}'/g')
 
 	# But SELECT the original line, so test result doesn't depend on
 	# the substituted values.

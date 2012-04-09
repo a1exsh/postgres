@@ -16,5 +16,5 @@ The database is created by the script prior to running the actual
 tests.
 
 The connection URI lines to test are read from the file 'regress.in',
-and are eval-d before passing them to psql (like `eval echo $line`,)
-thus ${variable} substitutions are carried out.
+and ${VARIABLE} substitutions for PGUSER, PGPORT and PGDATABASE are
+carried out.
