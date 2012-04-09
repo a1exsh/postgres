@@ -13,7 +13,8 @@ postgresql://
 postgresql://%6Cocalhost/
 postgresql://localhost/${PGDATABASE}?user=${PGUSER}
 postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
-postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
+postgresql://localhost/${PGDATABASE}?u%73er=${PGUSER}&port=${PGPORT}
+postgresql://localhost/${PGDATABASE}?u%7aer=${PGUSER}&port=${PGPORT}
 postgresql://localhost:${PGPORT}?user=${PGUSER}
 postgresql://localhost?user=${PGUSER}
 postgresql://localhost?

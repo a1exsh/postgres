@@ -5019,6 +5019,12 @@ conninfo_storeval(PQconninfoOption *connOptions,
 	char		   *value_copy;
 	char		   *keyword_copy = NULL;
 
+	/*
+	 * Decode the keyword.  XXX this is seldom necessary as keywords do not
+	 * normally need URI-escaping.  It'd be good to do away with the
+	 * malloc/free overhead and the general ugliness, but I don't see a
+	 * better way to handle it.
+	 */
 	if (uri_decode)
 	{
 		keyword_copy = conninfo_uri_decode(keyword, errorMessage);
