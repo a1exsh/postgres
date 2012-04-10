@@ -4,6 +4,7 @@ postgresql://localhost:${PGPORT}/${PGDATABASE}
 postgresql://localhost/${PGDATABASE}
 postgresql://${PGUSER}@localhost:${PGPORT}/
 postgresql://${PGUSER}@localhost/
+postgresql://${PGUSER}@
 postgresql://localhost:${PGPORT}/
 postgresql://localhost:${PGPORT}
 postgresql://localhost/${PGDATABASE}
@@ -13,8 +14,8 @@ postgresql://
 postgresql://%6Cocalhost/
 postgresql://localhost/${PGDATABASE}?user=${PGUSER}
 postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
-postgresql://localhost/${PGDATABASE}?u%73er=${PGUSER}&port=${PGPORT}
-postgresql://localhost/${PGDATABASE}?u%7aer=${PGUSER}&port=${PGPORT}
+postgresql://localhost/${PGDATABASE}?u%73er=someotheruser&port=${PGPORT}
+postgresql://localhost/${PGDATABASE}?u%7aer=someotheruser&port=${PGPORT}
 postgresql://localhost:${PGPORT}?user=${PGUSER}
 postgresql://localhost?user=${PGUSER}
 postgresql://localhost?
@@ -39,3 +40,5 @@ postgresql://%1
 postgresql://%
 postgres://@localhost
 postgres://localhost:/
+postgres://otheruser@/no/such/socket/path
+postgres://otheruser@/no/such/socket/path:5433

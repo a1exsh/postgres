@@ -4578,16 +4578,87 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	start += prefix_len;
 	p = start;
 
-	/* Check for local unix socket dir at start of URI */
+	/* Look ahead for possible user credentials designator */
+	while (*p && *p != '@' && *p != '/')
+		++p;
+	if (*p == '@')
+	{
+		char   *user;
+
+		/*
+		 * Found username/password designator, so URI should be of the form
+		 * "scheme://user[:password]@[netloc]".
+		 */
+		user = start;
+
+		p = user;
+		while (*p != ':' && *p != '@')
+			++p;
+
+		/* Save last char and cut off at end of user name */
+		prevchar = *p;
+		*p = '\0';
+
+		if (!*user)
+		{
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("invalid empty username specifier in URI: %s\n"),
+							  uri);
+			free(buf);
+			return false;
+		}
+		if (!conninfo_storeval(options, "user", user,
+							   errorMessage, false, true))
+		{
+			free(buf);
+			return false;
+		}
+
+		if (prevchar == ':')
+		{
+			const char *password = p + 1;
+
+			while (*p != '@')
+				++p;
+			*p = '\0';
+
+			/* we allow an empty password */
+			if (!conninfo_storeval(options, "password", password,
+								   errorMessage, false, true))
+			{
+				free(buf);
+				return false;
+			}
+		}
+
+		/* Advance past end of parsed user name or password token */
+		++p;
+	}
+	else
+	{
+		/*
+		 * No username/password designator found.  Reset to start of URI.
+		 */
+		p = start;
+	}
+
+	/*
+	 * "p" has been incremented past optional URI credential information at
+	 * this point and now points at the "netloc" part of the URI.
+	 *
+	 * Check for local unix socket dir.
+	 */
 	if (*p == '/')
 	{
+		const char *socket = p;
+
 		/* Look for possible query parameters */
 		while (*p && *p != '?')
 			++p;
 		prevchar = *p;
 		*p = '\0';
 
-		if (!conninfo_storeval(options, "host", start,
+		if (!conninfo_storeval(options, "host", socket,
 			 				   errorMessage, false, true))
 		{
 			free(buf);
@@ -4599,83 +4670,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		/* Not a unix socket dir: parse as host name/address */
 		const char *host;
 
-		/* Look ahead for possible user credentials designator */
-		while (*p && *p != '@' && *p != '/')
-			++p;
-		if (*p == '@')
-		{
-			char   *user;
-
-			/*
-			 * Found username/password designator, so URI should be of the form
-			 * "scheme://user[:password]@[netloc]".
-			 */
-			user = start;
-
-			p = user;
-			while (*p != ':' && *p != '@')
-				++p;
-
-			/* Save last char and cut off at end of user name */
-			prevchar = *p;
-			*p = '\0';
-
-			if (!*user)
-			{
-				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("missing username specifier in URI: %s\n"),
-								  uri);
-				free(buf);
-				return false;
-			}
-			if (!conninfo_storeval(options, "user", user,
-								   errorMessage, false, true))
-			{
-				free(buf);
-				return false;
-			}
-
-			if (prevchar == ':')
-			{
-				const char *password = p + 1;
-
-				while (*p != '@')
-					++p;
-				*p = '\0';
-
-				if (!*password)
-				{
-					printfPQExpBuffer(errorMessage,
-									  libpq_gettext("missing password specifier in URI: %s\n"),
-									  uri);
-					free(buf);
-					return false;
-				}
-				if (!conninfo_storeval(options, "password", password,
-									   errorMessage, false, true))
-				{
-					free(buf);
-					return false;
-				}
-			}
-
-			/* Advance past end of parsed user name or password token */
-			++p;
-		}
-		else
-		{
-			/*
-			 * No username/password designator found.
-			 *
-			 * Reset to start of URI and parse as "scheme://netloc/..."
-			 * instead.
-			 */
-			p = start;
-		}
-
 		/*
-		 * "p" has been incremented past optional URI credential information at
-		 * this point and now points at the "netloc" part of the URI.
 		 *
 		 * Look for IPv6 address 
 		 */
@@ -4705,14 +4700,14 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			*(p++) = '\0';
 
 			/* 
-			 * The address must be followed by a port specifier or a slash or a
+			 * The address may be followed by a port specifier or a slash or a
 			 * query.
 			 */
 			if (*p && *p != ':' && *p != '/' && *p != '?')
 			{
 				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("unexpected '%c' at position %td in URI (expecting ':' or '/'): %s\n"),
-								  *p, p - buf + 1, uri);
+								  libpq_gettext("unexpected '%c' at position %d in URI (expecting ':' or '/'): %s\n"),
+								  *p, (int) (p - buf + 1), uri);
 				free(buf);
 				return false;
 			}
