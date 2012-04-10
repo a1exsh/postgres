@@ -4622,7 +4622,15 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				++p;
 			*p = '\0';
 
-			/* we allow an empty password */
+			if (!*password)
+			{
+				printfPQExpBuffer(errorMessage,
+								  libpq_gettext("invalid empty password specifier in URI: %s\n"),
+								  uri);
+				free(buf);
+				return false;
+			}
+
 			if (!conninfo_storeval(options, "password", password,
 								   errorMessage, false, true))
 			{
