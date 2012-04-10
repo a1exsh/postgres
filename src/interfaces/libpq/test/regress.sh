@@ -10,7 +10,7 @@ PGDATABASE=regression
 fi
 export PGUSER PGPORT PGDATABASE
 
-"${BINDIR}/createdb" "${PGDATABASE}"
+#"${BINDIR}/createdb" "${PGDATABASE}"
 
 echo "Running libpq URI support test..."
 
@@ -18,12 +18,10 @@ while read line
 do
 	echo "trying $line"
 
-	# First, expand PG* variables in the test URI line.
+	# Expand PG* variables in the test URI line.
 	uri=$(echo "$line" | sed -e 's/\${PGUSER}/'${PGUSER}'/g' -e 's/\${PGPORT}/'${PGPORT}'/g' -e 's/\${PGDATABASE}/'${PGDATABASE}'/g')
 
-	# But SELECT the original line, so test result doesn't depend on
-	# the substituted values.
-	"${BINDIR}/psql" -d "$uri" -At -c "SELECT '$line'"
+	"${SRCDIR}/${SUBDIR}"/uri-regress "$uri"
 	echo ""
 done < "${SRCDIR}/${SUBDIR}"/regress.in >regress.out 2>&1
 

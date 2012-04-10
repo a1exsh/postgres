@@ -1,115 +1,148 @@
 trying postgresql://${PGUSER}@localhost:${PGPORT}/${PGDATABASE}
-postgresql://${PGUSER}@localhost:${PGPORT}/${PGDATABASE}
+host='localhost' 
 
 trying postgresql://${PGUSER}@localhost/${PGDATABASE}
-postgresql://${PGUSER}@localhost/${PGDATABASE}
+host='localhost' 
 
 trying postgresql://localhost:${PGPORT}/${PGDATABASE}
-postgresql://localhost:${PGPORT}/${PGDATABASE}
+host='localhost' 
 
 trying postgresql://localhost/${PGDATABASE}
-postgresql://localhost/${PGDATABASE}
+host='localhost' 
 
 trying postgresql://${PGUSER}@localhost:${PGPORT}/
-postgresql://${PGUSER}@localhost:${PGPORT}/
+host='localhost' 
 
 trying postgresql://${PGUSER}@localhost/
-postgresql://${PGUSER}@localhost/
+host='localhost' 
+
+trying postgresql://${PGUSER}@
+host='' 
 
 trying postgresql://localhost:${PGPORT}/
-postgresql://localhost:${PGPORT}/
+host='localhost' 
 
 trying postgresql://localhost:${PGPORT}
-postgresql://localhost:${PGPORT}
+host='localhost' 
 
 trying postgresql://localhost/${PGDATABASE}
-postgresql://localhost/${PGDATABASE}
+host='localhost' 
 
 trying postgresql://localhost/
-postgresql://localhost/
+host='localhost' 
 
 trying postgresql://localhost
-postgresql://localhost
+host='localhost' 
 
 trying postgresql://
-postgresql://
+host='' 
 
 trying postgresql://%6Cocalhost/
-postgresql://%6Cocalhost/
+host='localhost' 
 
 trying postgresql://localhost/${PGDATABASE}?user=${PGUSER}
-postgresql://localhost/${PGDATABASE}?user=${PGUSER}
+host='localhost' 
 
 trying postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
-postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
+host='localhost' 
 
-trying postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
-postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
+trying postgresql://localhost/${PGDATABASE}?u%73er=someotheruser&port=${PGPORT}
+user='someotheruser' host='localhost' 
+
+trying postgresql://localhost/${PGDATABASE}?u%7aer=someotheruser&port=${PGPORT}
+WARNING: ignoring unrecognized URI query parameter: u%7aer
+host='localhost' 
 
 trying postgresql://localhost:${PGPORT}?user=${PGUSER}
-postgresql://localhost:${PGPORT}?user=${PGUSER}
+host='localhost' 
 
 trying postgresql://localhost?user=${PGUSER}
-postgresql://localhost?user=${PGUSER}
+host='localhost' 
 
 trying postgresql://localhost?
-postgresql://localhost?
+host='localhost' 
 
 trying postgresql://[::1]:${PGPORT}/${PGDATABASE}
-postgresql://[::1]:${PGPORT}/${PGDATABASE}
+host='::1' 
 
 trying postgresql://[::1]/${PGDATABASE}
-postgresql://[::1]/${PGDATABASE}
+host='::1' 
 
 trying postgresql://[::1]/
-postgresql://[::1]/
+host='::1' 
 
 trying postgresql://[::1]
-postgresql://[::1]
+host='::1' 
 
 trying postgres://
-postgres://
+host='' 
 
 trying postgres:///tmp
-postgres:///tmp
+host='/tmp' 
 
 trying postgresql://localhost?uzer=
 WARNING: ignoring unrecognized URI query parameter: uzer
-postgresql://localhost?uzer=
+host='localhost' 
 
 trying postgre://
-psql: FATAL:  database "postgre://" does not exist
+uri-regress: missing "=" after "postgre://" in connection info string
+
 
 trying postgres://[::1
-psql: end of string reached when looking for matching ']' in IPv6 host address in URI: postgres://[::1
+uri-regress: end of string reached when looking for matching ']' in IPv6 host address in URI: postgres://[::1
+
 
 trying postgres://[]
-psql: IPv6 host address may not be empty in URI: postgres://[]
+uri-regress: IPv6 host address may not be empty in URI: postgres://[]
+
 
 trying postgres://[::1]z
-psql: unexpected 'z' at position 17 in URI (expecting ':' or '/'): postgres://[::1]z
+uri-regress: unexpected 'z' at position 17 in URI (expecting ':' or '/'): postgres://[::1]z
+
 
 trying postgresql://localhost?zzz
-psql: missing key/value separator '=' in URI query parameter: zzz
+uri-regress: missing key/value separator '=' in URI query parameter: zzz
+
+
+trying postgresql://localhost?value1&value2
+uri-regress: missing key/value separator '=' in URI query parameter: value1
+
+
+trying postgresql://localhost?key=key=value
+uri-regress: extra key/value separator '=' in URI query parameter: key
+
 
 trying postgres://localhost?dbname=%XXfoo
-psql: invalid percent-encoded token: %XXfoo
+uri-regress: invalid percent-encoded token: %XXfoo
+
 
 trying postgresql://a%00b
-psql: forbidden value %00 in percent-encoded value: a%00b
+uri-regress: forbidden value %00 in percent-encoded value: a%00b
+
 
 trying postgresql://%zz
-psql: invalid percent-encoded token: %zz
+uri-regress: invalid percent-encoded token: %zz
+
 
 trying postgresql://%1
-psql: invalid percent-encoded token: %1
+uri-regress: invalid percent-encoded token: %1
+
 
 trying postgresql://%
-psql: invalid percent-encoded token: %
+uri-regress: invalid percent-encoded token: %
+
 
 trying postgres://@localhost
-psql: missing username specifier in URI: postgres://@localhost
+uri-regress: invalid empty username specifier in URI: postgres://@localhost
+
 
 trying postgres://localhost:/
-psql: missing port specifier in URI: postgres://localhost:/
+uri-regress: missing port specifier in URI: postgres://localhost:/
+
+
+trying postgres://otheruser@/no/such/socket/path
+user='otheruser' host='/no/such/socket/path' 
+
+trying postgres://otheruser@/no/such/socket/path:5433
+user='otheruser' host='/no/such/socket/path:5433' 
 
