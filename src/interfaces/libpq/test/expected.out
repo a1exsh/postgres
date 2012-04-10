@@ -1,88 +1,94 @@
-trying postgresql://${PGUSER}@localhost:${PGPORT}/${PGDATABASE}
-host='localhost' 
+trying postgresql://uri-user:secret@host:12345/db
+user='uri-user' password='secret' dbname='db' host='host' port='12345' (inet)
 
-trying postgresql://${PGUSER}@localhost/${PGDATABASE}
-host='localhost' 
+trying postgresql://uri-user@host:12345/db
+user='uri-user' dbname='db' host='host' port='12345' (inet)
 
-trying postgresql://localhost:${PGPORT}/${PGDATABASE}
-host='localhost' 
+trying postgresql://uri-user@host/db
+user='uri-user' dbname='db' host='host' (inet)
 
-trying postgresql://localhost/${PGDATABASE}
-host='localhost' 
+trying postgresql://host:12345/db
+dbname='db' host='host' port='12345' (inet)
 
-trying postgresql://${PGUSER}@localhost:${PGPORT}/
-host='localhost' 
+trying postgresql://host/db
+dbname='db' host='host' (inet)
 
-trying postgresql://${PGUSER}@localhost/
-host='localhost' 
+trying postgresql://uri-user@host:12345/
+user='uri-user' host='host' port='12345' (inet)
 
-trying postgresql://${PGUSER}@
-host='' 
+trying postgresql://uri-user@host/
+user='uri-user' host='host' (inet)
 
-trying postgresql://localhost:${PGPORT}/
-host='localhost' 
+trying postgresql://uri-user@
+user='uri-user' host='' (local)
 
-trying postgresql://localhost:${PGPORT}
-host='localhost' 
+trying postgresql://host:12345/
+host='host' port='12345' (inet)
 
-trying postgresql://localhost/${PGDATABASE}
-host='localhost' 
+trying postgresql://host:12345
+host='host' port='12345' (inet)
 
-trying postgresql://localhost/
-host='localhost' 
+trying postgresql://host/db
+dbname='db' host='host' (inet)
 
-trying postgresql://localhost
-host='localhost' 
+trying postgresql://host/
+host='host' (inet)
+
+trying postgresql://host
+host='host' (inet)
 
 trying postgresql://
-host='' 
+host='' (local)
 
-trying postgresql://%6Cocalhost/
-host='localhost' 
+trying postgresql://?hostaddr=127.0.0.1
+host='' hostaddr='127.0.0.1' (inet)
 
-trying postgresql://localhost/${PGDATABASE}?user=${PGUSER}
-host='localhost' 
+trying postgresql://%68ost/
+host='host' (inet)
 
-trying postgresql://localhost/${PGDATABASE}?user=${PGUSER}&port=${PGPORT}
-host='localhost' 
+trying postgresql://host/db?user=uri-user
+user='uri-user' dbname='db' host='host' (inet)
 
-trying postgresql://localhost/${PGDATABASE}?u%73er=someotheruser&port=${PGPORT}
-user='someotheruser' host='localhost' 
+trying postgresql://host/db?user=uri-user&port=12345
+user='uri-user' dbname='db' host='host' port='12345' (inet)
 
-trying postgresql://localhost/${PGDATABASE}?u%7aer=someotheruser&port=${PGPORT}
+trying postgresql://host/db?u%73er=someotheruser&port=12345
+user='someotheruser' dbname='db' host='host' port='12345' (inet)
+
+trying postgresql://host/db?u%7aer=someotheruser&port=12345
 WARNING: ignoring unrecognized URI query parameter: u%7aer
-host='localhost' 
+dbname='db' host='host' port='12345' (inet)
 
-trying postgresql://localhost:${PGPORT}?user=${PGUSER}
-host='localhost' 
+trying postgresql://host:12345?user=uri-user
+user='uri-user' host='host' port='12345' (inet)
 
-trying postgresql://localhost?user=${PGUSER}
-host='localhost' 
+trying postgresql://host?user=uri-user
+user='uri-user' host='host' (inet)
 
-trying postgresql://localhost?
-host='localhost' 
+trying postgresql://host?
+host='host' (inet)
 
-trying postgresql://[::1]:${PGPORT}/${PGDATABASE}
-host='::1' 
+trying postgresql://[::1]:12345/db
+dbname='db' host='::1' port='12345' (inet)
 
-trying postgresql://[::1]/${PGDATABASE}
-host='::1' 
+trying postgresql://[::1]/db
+dbname='db' host='::1' (inet)
 
 trying postgresql://[::1]/
-host='::1' 
+host='::1' (inet)
 
 trying postgresql://[::1]
-host='::1' 
+host='::1' (inet)
 
 trying postgres://
-host='' 
+host='' (local)
 
 trying postgres:///tmp
-host='/tmp' 
+host='/tmp' (local)
 
-trying postgresql://localhost?uzer=
+trying postgresql://host?uzer=
 WARNING: ignoring unrecognized URI query parameter: uzer
-host='localhost' 
+host='host' (inet)
 
 trying postgre://
 uri-regress: missing "=" after "postgre://" in connection info string
@@ -100,19 +106,19 @@ trying postgres://[::1]z
 uri-regress: unexpected 'z' at position 17 in URI (expecting ':' or '/'): postgres://[::1]z
 
 
-trying postgresql://localhost?zzz
+trying postgresql://host?zzz
 uri-regress: missing key/value separator '=' in URI query parameter: zzz
 
 
-trying postgresql://localhost?value1&value2
+trying postgresql://host?value1&value2
 uri-regress: missing key/value separator '=' in URI query parameter: value1
 
 
-trying postgresql://localhost?key=key=value
+trying postgresql://host?key=key=value
 uri-regress: extra key/value separator '=' in URI query parameter: key
 
 
-trying postgres://localhost?dbname=%XXfoo
+trying postgres://host?dbname=%XXfoo
 uri-regress: invalid percent-encoded token: %XXfoo
 
 
@@ -132,17 +138,17 @@ trying postgresql://%
 uri-regress: invalid percent-encoded token: %
 
 
-trying postgres://@localhost
-uri-regress: invalid empty username specifier in URI: postgres://@localhost
+trying postgres://@host
+uri-regress: invalid empty username specifier in URI: postgres://@host
 
 
-trying postgres://localhost:/
-uri-regress: missing port specifier in URI: postgres://localhost:/
+trying postgres://host:/
+uri-regress: missing port specifier in URI: postgres://host:/
 
 
 trying postgres://otheruser@/no/such/socket/path
-user='otheruser' host='/no/such/socket/path' 
+user='otheruser' host='/no/such/socket/path' (local)
 
-trying postgres://otheruser@/no/such/socket/path:5433
-user='otheruser' host='/no/such/socket/path:5433' 
+trying postgres://otheruser@/no/such/socket/path:12345
+user='otheruser' host='/no/such/socket/path' port='12345' (local)
 

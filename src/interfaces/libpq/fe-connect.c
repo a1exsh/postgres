@@ -4652,8 +4652,8 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	{
 		const char *socket = p;
 
-		/* Look for possible query parameters */
-		while (*p && *p != '?')
+		/* Look for possible port specifier or query parameters */
+		while (*p && *p != ':' && *p != '?')
 			++p;
 		prevchar = *p;
 		*p = '\0';
@@ -4735,31 +4735,31 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			free(buf);
 			return false;
 		}
+	}
 
-		if (prevchar == ':')
+	if (prevchar == ':')
+	{
+		const char *port = ++p; /* advance past host terminator */
+
+		while (*p && *p != '/' && *p != '?')
+			++p;
+
+		prevchar = *p;
+		*p = '\0';
+
+		if (!*port)
 		{
-			const char *port = ++p; /* advance past host terminator */
-
-			while (*p && *p != '/' && *p != '?')
-				++p;
-
-			prevchar = *p;
-			*p = '\0';
-
-			if (!*port)
-			{
-				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("missing port specifier in URI: %s\n"),
-								  uri);
-				free(buf);
-				return false;
-			}
-			if (!conninfo_storeval(options, "port", port,
-				 				   errorMessage, false, true))
-			{
-				free(buf);
-				return false;
-			}
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("missing port specifier in URI: %s\n"),
+							  uri);
+			free(buf);
+			return false;
+		}
+		if (!conninfo_storeval(options, "port", port,
+							   errorMessage, false, true))
+		{
+			free(buf);
+			return false;
 		}
 	}
 

@@ -13,7 +13,7 @@ PROGS = uri-regress
 
 all: $(PROGS)
 
-check: all
+installcheck: all
 	SRCDIR='$(top_srcdir)' SUBDIR='$(subdir)' \
 		   $(SHELL) $(top_srcdir)/$(subdir)/regress.sh
 

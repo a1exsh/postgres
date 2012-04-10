@@ -39,7 +39,7 @@ main(int argc, char *argv[])
 
 			if (*opt->val &&
 				(strcmp(opt->keyword, "hostaddr") == 0 ||
-				 strcmp(opt->keyword, "host") == 0 && *opt->val != '/'))
+				 (strcmp(opt->keyword, "host") == 0 && *opt->val != '/')))
 			{
 				local = 0;
 			}

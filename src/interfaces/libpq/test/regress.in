@@ -44,3 +44,4 @@ postgres://@host
 postgres://host:/
 postgres://otheruser@/no/such/socket/path
 postgres://otheruser@/no/such/socket/path:12345
+postgres://otheruser@/path/to/socket:12345/db
