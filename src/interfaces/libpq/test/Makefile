@@ -14,7 +14,7 @@ PROGS = uri-regress
 all: $(PROGS)
 
 check:
-	BINDIR='$(bindir)' PGPORT='$(DEF_PGPORT)' SUBDIR='$(subdir)' SRCDIR='$(top_srcdir)' \
+	SRCDIR='$(top_srcdir)' SUBDIR='$(subdir)' \
 		   $(SHELL) $(top_srcdir)/$(subdir)/regress.sh
 
 clean distclean maintainer-clean:

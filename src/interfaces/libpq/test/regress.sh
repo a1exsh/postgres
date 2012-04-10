@@ -1,27 +1,10 @@
 #!/bin/sh
-if [ -z "$PGUSER" ]; then
-PGUSER=$USER
-fi
-if [ -z "$PGPORT" ]; then
-PGPORT=5432
-fi
-if [ -z "$PGDATABASE" ]; then
-PGDATABASE=regression
-fi
-export PGUSER PGPORT PGDATABASE
-
-#"${BINDIR}/createdb" "${PGDATABASE}"
-
 echo "Running libpq URI support test..."
 
 while read line
 do
 	echo "trying $line"
-
-	# Expand PG* variables in the test URI line.
-	uri=$(echo "$line" | sed -e 's/\${PGUSER}/'${PGUSER}'/g' -e 's/\${PGPORT}/'${PGPORT}'/g' -e 's/\${PGDATABASE}/'${PGDATABASE}'/g')
-
-	"${SRCDIR}/${SUBDIR}"/uri-regress "$uri"
+	"${SRCDIR}/${SUBDIR}"/uri-regress "$line"
 	echo ""
 done < "${SRCDIR}/${SUBDIR}"/regress.in >regress.out 2>&1
 
