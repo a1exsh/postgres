@@ -4555,8 +4555,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	char   *p;
 	char   *buf = strdup(uri);	/* need a modifiable copy of the input URI */
 	char   *start = buf;
-	char	lastc = '\0';
-	char   *user = NULL;
+	char	prevchar = '\0';
 
 	if (buf == NULL)
 	{
@@ -4585,7 +4584,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		/* Look for possible query parameters */
 		while (*p && *p != '?')
 			++p;
-		lastc = *p;
+		prevchar = *p;
 		*p = '\0';
 
 		if (!conninfo_storeval(options, "host", start,
@@ -4605,9 +4604,11 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			++p;
 		if (*p == '@')
 		{
+			char   *user;
+
 			/*
 			 * Found username/password designator, so URI should be of the form
-			 * "scheme://user@netloc" or "scheme://user:password@netloc".
+			 * "scheme://user[:password]@[netloc]".
 			 */
 			user = start;
 
@@ -4616,7 +4617,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				++p;
 
 			/* Save last char and cut off at end of user name */
-			lastc = *p;
+			prevchar = *p;
 			*p = '\0';
 
 			if (!*user)
@@ -4634,7 +4635,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 				return false;
 			}
 
-			if (lastc == ':')
+			if (prevchar == ':')
 			{
 				const char *password = p + 1;
 
@@ -4730,17 +4731,9 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		}
 
 		/* Save the hostname terminator before we null it */
-		lastc = *p;
+		prevchar = *p;
 		*p = '\0';
 
-		if (user && !*host)
-		{
-			printfPQExpBuffer(errorMessage,
-							  libpq_gettext("must specify host when using username specifier in URI: %s\n"),
-							  uri);
-			free(buf);
-			return false;
-		}
 		if (!conninfo_storeval(options, "host", host,
 							   errorMessage, false, true))
 		{
@@ -4748,14 +4741,14 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 			return false;
 		}
 
-		if (lastc == ':')
+		if (prevchar == ':')
 		{
 			const char *port = ++p; /* advance past host terminator */
 
 			while (*p && *p != '/' && *p != '?')
 				++p;
 
-			lastc = *p;
+			prevchar = *p;
 			*p = '\0';
 
 			if (!*port)
@@ -4775,7 +4768,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		}
 	}
 
-	if (lastc && lastc != '?')
+	if (prevchar && prevchar != '?')
 	{
 		const char *dbname = ++p; /* advance past host terminator */
 
@@ -4783,7 +4776,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		while (*p && *p != '?')
 			++p;
 
-		lastc = *p;
+		prevchar = *p;
 		*p = '\0';
 
 		/*
@@ -4800,7 +4793,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		}
 	}
 
-	if (lastc)
+	if (prevchar)
 	{
 		++p; /* advance past terminator */
 
@@ -4819,8 +4812,7 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
  * Connection URI parameters parser routine
  *
  * If successful, returns true while connOptions is filled with parsed
- * parameters.
- * If not successful, returns false and fills errorMessage accordingly.
+ * parameters.  Otherwise, returns false and fills errorMessage appropriately.
  *
  * Destructively modifies 'params' buffer.
  */
@@ -4836,7 +4828,7 @@ conninfo_uri_parse_params(char *params,
 		char *p = params;
 
 		/*
-		 * Scan the params string for '=' and '&', markng the end of keyword
+		 * Scan the params string for '=' and '&', marking the end of keyword
 		 * and value respectively.
 		 */
 		for (;;)
@@ -4875,11 +4867,15 @@ conninfo_uri_parse_params(char *params,
 				++p;
 				break;
 			}
+
 			/* Advance, NUL is checked in the 'if' above */
 			++p;
 		}
 
-		/* Special keyword handling for improved JDBC compatibility */
+		/*
+		 * Special keyword handling for improved JDBC compatibility.  Note
+		 * we fail to detect URI-encoded values here, but we don't care.
+		 */
 		if (strcmp(keyword, "ssl") == 0 &&
 			strcmp(value, "true") == 0)
 		{
@@ -4888,7 +4884,7 @@ conninfo_uri_parse_params(char *params,
 		}
 
 		/*
-		 * Store the value if corresponding option was found -- ignore
+		 * Store the value if the corresponding option exists; ignore
 		 * otherwise.
 		 */
 		if (!conninfo_storeval(connOptions, keyword, value,
