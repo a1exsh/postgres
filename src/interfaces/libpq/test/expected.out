@@ -56,7 +56,7 @@ trying postgresql://host/db?u%73er=someotheruser&port=12345
 user='someotheruser' dbname='db' host='host' port='12345' (inet)
 
 trying postgresql://host/db?u%7aer=someotheruser&port=12345
-WARNING: ignoring unrecognized URI query parameter: u%7aer
+WARNING: ignoring unrecognized URI query parameter: uzer
 dbname='db' host='host' port='12345' (inet)
 
 trying postgresql://host:12345?user=uri-user
@@ -151,4 +151,7 @@ user='otheruser' host='/no/such/socket/path' (local)
 
 trying postgres://otheruser@/no/such/socket/path:12345
 user='otheruser' host='/no/such/socket/path' port='12345' (local)
+
+trying postgres://otheruser@/path/to/socket:12345/db
+user='otheruser' dbname='db' host='/path/to/socket' port='12345' (local)
 
