@@ -12,6 +12,7 @@ postgresql://host/db
 postgresql://host/
 postgresql://host
 postgresql://
+postgresql://?hostaddr=127.0.0.1
 postgresql://%68ost/
 postgresql://host/db?user=uri-user
 postgresql://host/db?user=uri-user&port=12345

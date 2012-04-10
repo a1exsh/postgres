@@ -11,6 +11,7 @@ main(int argc, char *argv[])
 	PQconninfoOption *defs;
 	PQconninfoOption *opt;
 	PQconninfoOption *def;
+	int local = 1;
 
 	if (argc != 2)
 		return 1;
@@ -31,11 +32,23 @@ main(int argc, char *argv[])
 
 	for (opt = opts, def = defs; opt->keyword; ++opt, ++def)
 	{
-		if (opt->val != NULL &&
-			(def->val == NULL || strcmp(opt->val, def->val) != 0))
-			printf("%s='%s' ", opt->keyword, opt->val);
+		if (opt->val != NULL)
+		{
+			if (def->val == NULL || strcmp(opt->val, def->val) != 0)
+				printf("%s='%s' ", opt->keyword, opt->val);
+
+			if (*opt->val &&
+				(strcmp(opt->keyword, "hostaddr") == 0 ||
+				 strcmp(opt->keyword, "host") == 0 && *opt->val != '/'))
+			{
+				local = 0;
+			}
+		}
 	}
-	printf("\b\n");
+	if (local)
+		printf("(local)\n");
+	else
+		printf("(inet)\n");
 
 	return 0;
 }
