@@ -4813,9 +4813,10 @@ conninfo_uri_parse_params(char *params,
 {
 	while (*params)
 	{
-		const char *keyword = params;
-		const char *value = NULL;
+		char *keyword = params;
+		char *value = NULL;
 		char *p = params;
+		bool malloced = false;
 
 		/*
 		 * Scan the params string for '=' and '&', marking the end of keyword
@@ -4866,34 +4867,65 @@ conninfo_uri_parse_params(char *params,
 			++p;
 		}
 
+		keyword = conninfo_uri_decode(keyword, errorMessage);
+		if (keyword == NULL)
+		{
+			/* conninfo_uri_decode already set an error message */
+			return false;
+		}
+		value = conninfo_uri_decode(value, errorMessage);
+		if (value == NULL)
+		{
+			/* conninfo_uri_decode already set an error message */
+			free(keyword);
+			return false;
+		}
+		malloced = true;
+
 		/*
-		 * Special keyword handling for improved JDBC compatibility.  Note
-		 * we fail to detect URI-encoded values here, but we don't care.
+		 * Special keyword handling for improved JDBC compatibility.
 		 */
 		if (strcmp(keyword, "ssl") == 0 &&
 			strcmp(value, "true") == 0)
 		{
+			free(keyword);
+			free(value);
+			malloced = false;
+
 			keyword = "sslmode";
 			value = "require";
 		}
 
 		/*
 		 * Store the value if the corresponding option exists; ignore
-		 * otherwise.
+		 * otherwise.  At this point both keyword and value are not
+		 * URI-encoded.
 		 */
 		if (!conninfo_storeval(connOptions, keyword, value,
-							   errorMessage, true, true))
+							   errorMessage, true, false))
 		{
 			/*
 			 * Check if there was a hard error when decoding or storing the
 			 * option.
 			 */
 			if (errorMessage->len != 0)
+			{
+				if (malloced)
+				{
+					free(keyword);
+					free(value);
+				}
 				return false;
+			}
 
 			fprintf(stderr,
 					libpq_gettext("WARNING: ignoring unrecognized URI query parameter: %s\n"),
 					keyword);
+		}
+		if (malloced)
+		{
+			free(keyword);
+			free(value);
 		}
 
 		/* Proceed to next key=value pair */
@@ -5017,7 +5049,8 @@ conninfo_getval(PQconninfoOption *connOptions,
  * Store a (new) value for an option corresponding to the keyword in
  * connOptions array.
  *
- * If uri_decode is true, keyword and value are URI-decoded.
+ * If uri_decode is true, the value is URI-decoded.  The keyword is always
+ * assumed to be non URI-encoded.
  *
  * If successful, returns a pointer to the corresponding PQconninfoOption,
  * which value is replaced with a strdup'd copy of the passed value string.
@@ -5034,32 +5067,16 @@ conninfo_storeval(PQconninfoOption *connOptions,
 				  bool uri_decode)
 {
 	PQconninfoOption *option;
-	char		   *value_copy;
-	char		   *keyword_copy = NULL;
+	char			 *value_copy;
 
-	/*
-	 * Decode the keyword.  XXX this is seldom necessary as keywords do not
-	 * normally need URI-escaping.  It'd be good to do away with the
-	 * malloc/free overhead and the general ugliness, but I don't see a
-	 * better way to handle it.
-	 */
-	if (uri_decode)
-	{
-		keyword_copy = conninfo_uri_decode(keyword, errorMessage);
-		if (keyword_copy == NULL)
-			/* conninfo_uri_decode already set an error message */
-			goto failed;
-	}
-
-	option = conninfo_find(connOptions,
-						   keyword_copy != NULL ? keyword_copy : keyword);
+	option = conninfo_find(connOptions, keyword);
 	if (option == NULL)
 	{
 		if (!ignoreMissing)
 			printfPQExpBuffer(errorMessage,
 							  libpq_gettext("invalid connection option \"%s\"\n"),
 							  keyword);
-		goto failed;
+		return NULL;
 	}
 
 	if (uri_decode)
@@ -5067,7 +5084,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		value_copy = conninfo_uri_decode(value, errorMessage);
 		if (value_copy == NULL)
 			/* conninfo_uri_decode already set an error message */
-			goto failed;
+			return NULL;
 	}
 	else
 	{
@@ -5076,7 +5093,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		if (value_copy == NULL)
 		{
 			printfPQExpBuffer(errorMessage, libpq_gettext("out of memory\n"));
-			goto failed;
+			return NULL;
 		}
 	}
 
@@ -5084,14 +5101,7 @@ conninfo_storeval(PQconninfoOption *connOptions,
 		free(option->val);
 	option->val = value_copy;
 
-	if (keyword_copy != NULL)
-		free(keyword_copy);
 	return option;
-
-failed:
-	if (keyword_copy != NULL)
-		free(keyword_copy);
-	return NULL;
 }
 
 /*

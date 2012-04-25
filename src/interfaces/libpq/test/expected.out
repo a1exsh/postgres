@@ -59,7 +59,7 @@ trying postgresql://host/db?u%73er=someotheruser&port=12345
 user='someotheruser' dbname='db' host='host' port='12345' (inet)
 
 trying postgresql://host/db?u%7aer=someotheruser&port=12345
-WARNING: ignoring unrecognized URI query parameter: u%7aer
+WARNING: ignoring unrecognized URI query parameter: uzer
 dbname='db' host='host' port='12345' (inet)
 
 trying postgresql://host:12345?user=uri-user
