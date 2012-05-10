@@ -4566,6 +4566,8 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	char   *buf = strdup(uri);	/* need a modifiable copy of the input URI */
 	char   *start = buf;
 	char	prevchar = '\0';
+	char   *user = NULL;
+	char   *host = NULL;
 	bool	retval = false;
 
 	if (buf == NULL)
@@ -4593,8 +4595,6 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 		++p;
 	if (*p == '@')
 	{
-		char   *user;
-
 		/*
 		 * Found username/password designator, so URI should be of the form
 		 * "scheme://user[:password]@[netloc]".
@@ -4656,87 +4656,64 @@ conninfo_uri_parse_options(PQconninfoOption *options, const char *uri,
 	 * "p" has been incremented past optional URI credential information at
 	 * this point and now points at the "netloc" part of the URI.
 	 *
-	 * Check for local unix socket dir.
+	 * Look for IPv6 address.
 	 */
-	if (*p == '/')
+	if (*p == '[')
 	{
-		const char *socket = p;
-
-		/* Look for possible port specifier or query parameters */
-		while (*p && *p != ':' && *p != '?')
+		host = ++p;
+		while (*p && *p != ']')
 			++p;
-		prevchar = *p;
-		*p = '\0';
-
-		if (!conninfo_storeval(options, "host", socket,
-							   errorMessage, false, true))
+		if (!*p)
+		{
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("end of string reached when looking for matching ']' in IPv6 host address in URI: %s\n"),
+							  uri);
 			goto cleanup;
+		}
+		if (p == host)
+		{
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("IPv6 host address may not be empty in URI: %s\n"),
+							  uri);
+			goto cleanup;
+		}
+
+		/* Cut off the bracket and advance */
+		*(p++) = '\0';
+
+		/*
+		 * The address may be followed by a port specifier or a slash or a
+		 * query.
+		 */
+		if (*p && *p != ':' && *p != '/' && *p != '?')
+		{
+			printfPQExpBuffer(errorMessage,
+							  libpq_gettext("unexpected '%c' at position %d in URI (expecting ':' or '/'): %s\n"),
+							  *p, (int) (p - buf + 1), uri);
+			goto cleanup;
+		}
 	}
 	else
 	{
-		/* Not a unix socket dir: parse as host name or address */
-		const char *host;
+		/* not an IPv6 address: DNS-named or IPv4 netloc */
+		host = p;
 
 		/*
-		 *
-		 * Look for IPv6 address
+		 * Look for port specifier (colon) or end of host specifier
+		 * (slash), or query (question mark).
 		 */
-		if (*p == '[')
-		{
-			host = ++p;
-			while (*p && *p != ']')
-				++p;
-			if (!*p)
-			{
-				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("end of string reached when looking for matching ']' in IPv6 host address in URI: %s\n"),
-								  uri);
-				goto cleanup;
-			}
-			if (p == host)
-			{
-				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("IPv6 host address may not be empty in URI: %s\n"),
-								  uri);
-				goto cleanup;
-			}
-
-			/* Cut off the bracket and advance */
-			*(p++) = '\0';
-
-			/*
-			 * The address may be followed by a port specifier or a slash or a
-			 * query.
-			 */
-			if (*p && *p != ':' && *p != '/' && *p != '?')
-			{
-				printfPQExpBuffer(errorMessage,
-								  libpq_gettext("unexpected '%c' at position %d in URI (expecting ':' or '/'): %s\n"),
-								  *p, (int) (p - buf + 1), uri);
-				goto cleanup;
-			}
-		}
-		else
-		{
-			/* not an IPv6 address: DNS-named or IPv4 netloc */
-			host = p;
-
-			/*
-			 * Look for port specifier (colon) or end of host specifier
-			 * (slash), or query (question mark).
-			 */
-			while (*p && *p != ':' && *p != '/' && *p != '?')
-				++p;
-		}
-
-		/* Save the hostname terminator before we null it */
-		prevchar = *p;
-		*p = '\0';
-
-		if (!conninfo_storeval(options, "host", host,
-							   errorMessage, false, true))
-			goto cleanup;
+		while (*p && *p != ':' && *p != '/' && *p != '?')
+			++p;
 	}
+
+	/* Save the hostname terminator before we null it */
+	prevchar = *p;
+	*p = '\0';
+
+	if (!conninfo_storeval(options, "host", host,
+						   errorMessage, false, true))
+		goto cleanup;
+
 
 	if (prevchar == ':')
 	{
